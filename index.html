@@ -1,60 +1,97 @@
-from aiogram.fsm.context import FSMContext
-from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery, ContentType
-from aiogram import types
-from Connections.postgresql import pg_manager as manager
-from FSM.profileFSM import Profile
-from handlers.reg import is_valid_email
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#ffffff">
+    <title>Мой профиль</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Telegram Mini App SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-async def profile_cmd(message: types.Message, state: FSMContext):
-    user_id = message.from_user.id
-    async with manager:
-        user = await manager.select_data(
-            table_name="usersdata",
-            where_dict={
-                "user_id" : user_id
-            },
-            one_dict=True
-        )
-    if not user:
-        await message.answer("Ты не зареган!")
-        return
-    referrals_count = user.get("referrals_count") or 0
-    referral_reward = user.get("referral_reward") or 0
-    referral_level = user.get("referral_level") or "Bronze"
+    <div class="app-container">
+        <!-- Loading State -->
+        <div id="loading" class="loading-state">
+            <div class="spinner"></div>
+            <p>Загрузка профиля...</p>
+        </div>
 
-    text = (
-        "<b>Ваш профиль </b>\n"
-        f"ID <code>{user_id}</code>\n"
-        f"Имя {user.get('username')}\n"
-        f"Почта {user.get('email')}\n"
-        f"Приглашено: {referrals_count}\n"
-        f"Бонусы: {referral_reward}\n"
-        f"Уровень: {referral_level}"
-    )
+        <!-- Menu State -->
+        <div id="menu-state" class="menu-state hidden">
+            <div class="menu-header">
+                <div class="avatar-placeholder">
+                    <img id="avatar-img" class="avatar-img hidden" alt="Avatar" />
+                    <svg id="avatar-fallback" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"/>
+                        <path d="M4 20c0-4.418 3.582-8 8-8s8 3.582 8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <h1 id="menu-greeting" class="username">Привет!</h1>
+                <p class="status-text">Выберите действие, чтобы продолжить.</p>
+            </div>
 
-    # button = [[KeyboardButton(text="/email")]]
-    # kb = ReplyKeyboardMarkup(keyboard=button, resize_keyboard=True)
+            <div class="menu-cards">
+                <div class="card interactive-card">
+                    <div class="card-label">Профиль</div>
+                    <div class="card-value">Просмотр профиля и изменение почты с подтверждением паролем.</div>
+                    <button id="open-profile-btn" class="card-button">Открыть профиль</button>
+                </div>
+                <div id="referral-card" class="card referral-card">
+                    <div class="card-label">Реферальная система</div>
+                    <div class="card-value referral-summary">
+                        <div id="referral-invited" class="referral-line">👥 Приглашено: —</div>
+                        <div id="referral-reward" class="referral-line">⭐ Получено: —</div>
+                        <div id="referral-level" class="referral-line">🏆 Уровень: —</div>
+                        <div id="referral-progress-wrapper" class="referral-progress-wrapper hidden">
+                            <div id="referral-progress-label" class="referral-progress-label">🏆 Bronze</div>
+                            <div class="progress-track">
+                                <div id="referral-progress-fill" class="progress-fill"></div>
+                            </div>
+                            <div id="referral-progress-text" class="referral-progress-text">—</div>
+                        </div>
+                    </div>
+                    <div class="card-actions">
+                        <button id="copy-referral-link-btn" class="card-button">📋 Скопировать ссылку</button>
+                        <button id="open-referrals-btn" class="card-button">👥 Мои рефералы</button>
+                    </div>
+                </div>
+                <div class="card card-placeholder">
+                    <div class="card-label">Пункт 3</div>
+                    <div class="card-value">Здесь будет дополнительная опция.</div>
+                    <button class="card-button card-disabled" disabled>В разработке</button>
+                </div>
+            </div>
+        </div>
 
-    await message.answer(text, parse_mode="HTML")
+        <!-- Profile Content -->
+        <div id="profile-content" class="profile-content hidden">
+            <!-- Header -->
+            <div class="profile-header">
+                <div class="avatar-placeholder">
+                    <img id="avatar-img" class="avatar-img hidden" alt="Avatar" />
+                    <svg id="avatar-fallback" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"/>
+                        <path d="M4 20c0-4.418 3.582-8 8-8s8 3.582 8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <h1 id="username-display" class="username">Загрузка...</h1>
+                <p class="status-text">Профиль активен</p>
+            </div>
 
-async def email_change(message: types.Message, state: FSMContext):
-    await message.answer("Введи новую почту:")
-    await state.set_state(Profile.changing_email)
+            <!-- Profile Cards -->
+            <div class="profile-cards">
+                <!-- User ID Card -->
+                <div class="card">
+                    <div class="card-label">ID пользователя</div>
+                    <div id="user-id-display" class="card-value monospace">—</div>
+                    <button class="card-button copy-button" data-copy="user-id">Копировать</button>
+                </div>
 
-async def new_email(message:types.Message, state:FSMContext):
-    if not is_valid_email(message.text):
-        await message.answer("Некорректная почта")
-        return
-    async with manager:
-        await manager.update_data(
-            table_name="usersdata",
-            where_dict={
-                "user_id" : message.from_user.id
-            },
-            update_dict={
-                "email" : message.text
-            }
-        )
-    await message.answer("Вы поменяли почту!")
-    await state.clear()
-    
+                <!-- Email Card -->
+                <div class="card">
+                    <div class="card-label">Электронная почта</div>
+                    <div id="email-display" class="card-value">—</div>
+                    <button class="card-button copy-button" data-copy="email">Копировать</button>
+                </div>
